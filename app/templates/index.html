@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Flask on Kubernetes</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: #0a0e1a;
+      color: #e2e8f0;
+      min-height: 100vh;
+    }
+
+    /* ── Animated background ── */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background:
+        radial-gradient(ellipse at 20% 50%, rgba(59,130,246,0.08) 0%, transparent 60%),
+        radial-gradient(ellipse at 80% 20%, rgba(139,92,246,0.08) 0%, transparent 60%);
+      pointer-events: none;
+    }
+
+    /* ── Header ── */
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 20px 40px;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+      backdrop-filter: blur(10px);
+      background: rgba(10,14,26,0.8);
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 1.3rem;
+      font-weight: 700;
+      letter-spacing: -0.3px;
+    }
+
+    .logo svg { width: 32px; height: 32px; }
+
+    .badge {
+      padding: 4px 12px;
+      border-radius: 999px;
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      background: rgba(34,197,94,0.15);
+      color: #22c55e;
+      border: 1px solid rgba(34,197,94,0.3);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .badge::before {
+      content: '';
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: #22c55e;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50%       { opacity: 0.5; transform: scale(1.3); }
+    }
+
+    /* ── Main layout ── */
+    main {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 48px 24px;
+    }
+
+    .hero {
+      text-align: center;
+      margin-bottom: 52px;
+    }
+
+    .hero h1 {
+      font-size: clamp(2rem, 5vw, 3.2rem);
+      font-weight: 800;
+      background: linear-gradient(135deg, #60a5fa, #a78bfa, #34d399);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 12px;
+      line-height: 1.1;
+    }
+
+    .hero p {
+      color: #64748b;
+      font-size: 1rem;
+    }
+
+    /* ── Cloud banner ── */
+    .cloud-banner {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 22px;
+      border-radius: 12px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      margin-bottom: 48px;
+      border: 1px solid;
+    }
+
+    /* ── Cards grid ── */
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 18px;
+      margin-bottom: 36px;
+    }
+
+    .card {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 16px;
+      padding: 24px;
+      transition: transform 0.2s, border-color 0.2s;
+    }
+
+    .card:hover {
+      transform: translateY(-3px);
+      border-color: rgba(96,165,250,0.3);
+    }
+
+    .card-label {
+      font-size: 0.72rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: #475569;
+      margin-bottom: 10px;
+    }
+
+    .card-value {
+      font-size: 1.4rem;
+      font-weight: 700;
+      color: #f1f5f9;
+      word-break: break-all;
+    }
+
+    .card-icon {
+      font-size: 1.6rem;
+      margin-bottom: 12px;
+    }
+
+    /* ── Uptime counter ── */
+    #uptime-display {
+      font-variant-numeric: tabular-nums;
+      background: linear-gradient(135deg, #60a5fa, #a78bfa);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    /* ── K8s Architecture diagram ── */
+    .arch {
+      background: rgba(255,255,255,0.02);
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 16px;
+      padding: 32px;
+      margin-bottom: 36px;
+    }
+
+    .arch h2 {
+      font-size: 0.85rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: #475569;
+      margin-bottom: 28px;
+    }
+
+    .arch-flow {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 0;
+    }
+
+    .arch-node {
+      text-align: center;
+      padding: 16px 20px;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.1);
+      background: rgba(255,255,255,0.04);
+      min-width: 110px;
+    }
+
+    .arch-node .icon { font-size: 1.8rem; margin-bottom: 6px; }
+    .arch-node .name { font-size: 0.75rem; font-weight: 600; color: #94a3b8; }
+    .arch-node .sub  { font-size: 0.65rem; color: #475569; margin-top: 2px; }
+
+    .arch-arrow {
+      font-size: 1.4rem;
+      color: #334155;
+      padding: 0 8px;
+    }
+
+    /* ── Endpoints table ── */
+    .endpoints {
+      background: rgba(255,255,255,0.02);
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 16px;
+      padding: 32px;
+      margin-bottom: 36px;
+    }
+
+    .endpoints h2 {
+      font-size: 0.85rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: #475569;
+      margin-bottom: 20px;
+    }
+
+    .ep-row {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 12px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+    }
+
+    .ep-row:last-child { border-bottom: none; }
+
+    .method {
+      font-size: 0.7rem;
+      font-weight: 700;
+      padding: 3px 10px;
+      border-radius: 6px;
+      background: rgba(34,197,94,0.15);
+      color: #22c55e;
+      min-width: 48px;
+      text-align: center;
+    }
+
+    .ep-path { font-family: monospace; font-size: 0.9rem; color: #93c5fd; }
+    .ep-desc { font-size: 0.82rem; color: #64748b; margin-left: auto; }
+
+    /* ── Footer ── */
+    footer {
+      text-align: center;
+      padding: 32px;
+      color: #334155;
+      font-size: 0.8rem;
+      border-top: 1px solid rgba(255,255,255,0.04);
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="20" cy="20" r="18" fill="url(#g1)" opacity="0.9"/>
+      <path d="M13 20l5 5 9-10" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <defs>
+        <linearGradient id="g1" x1="0" y1="0" x2="40" y2="40" gradientUnits="userSpaceOnUse">
+          <stop stop-color="#3b82f6"/>
+          <stop offset="1" stop-color="#8b5cf6"/>
+        </linearGradient>
+      </defs>
+    </svg>
+    Flask &times; Kubernetes
+  </div>
+  <div class="badge">Live</div>
+</header>
+
+<main>
+  <div class="hero">
+    <h1>Multi-Cloud Deployment<br>Dashboard</h1>
+    <p>Running on Kubernetes &mdash; Auto-scaled &bull; Self-healing &bull; Zero-downtime</p>
+  </div>
+
+  <!-- Cloud provider banner -->
+  <div style="text-align:center">
+    <div class="cloud-banner" style="background: {{ cloud_color }}18; color: {{ cloud_color }}; border-color: {{ cloud_color }}44;">
+      &#9729; {{ cloud_name }}
+      &nbsp;&bull;&nbsp;
+      {{ environment | upper }}
+    </div>
+  </div>
+
+  <!-- Stat cards -->
+  <div class="grid">
+    <div class="card">
+      <div class="card-icon">&#128268;</div>
+      <div class="card-label">Pod / Hostname</div>
+      <div class="card-value" style="font-size:1rem; font-family:monospace">{{ hostname }}</div>
+    </div>
+    <div class="card">
+      <div class="card-icon">&#9654;</div>
+      <div class="card-label">Uptime</div>
+      <div class="card-value" id="uptime-display">--</div>
+    </div>
+    <div class="card">
+      <div class="card-icon">&#128200;</div>
+      <div class="card-label">Requests Served</div>
+      <div class="card-value" id="req-count">{{ request_count }}</div>
+    </div>
+    <div class="card">
+      <div class="card-icon">&#128010;</div>
+      <div class="card-label">Python Version</div>
+      <div class="card-value">{{ python_version }}</div>
+    </div>
+  </div>
+
+  <!-- Architecture flow -->
+  <div class="arch">
+    <h2>&#9881; Kubernetes Architecture</h2>
+    <div class="arch-flow">
+      <div class="arch-node">
+        <div class="icon">&#127760;</div>
+        <div class="name">Internet</div>
+        <div class="sub">User Traffic</div>
+      </div>
+      <div class="arch-arrow">&#8594;</div>
+      <div class="arch-node" style="border-color: rgba(96,165,250,0.4)">
+        <div class="icon">&#9878;</div>
+        <div class="name">Load Balancer</div>
+        <div class="sub">Port 80</div>
+      </div>
+      <div class="arch-arrow">&#8594;</div>
+      <div class="arch-node" style="border-color: rgba(167,139,250,0.4)">
+        <div class="icon">&#128268;</div>
+        <div class="name">K8s Service</div>
+        <div class="sub">ClusterIP</div>
+      </div>
+      <div class="arch-arrow">&#8594;</div>
+      <div class="arch-node" style="border-color: rgba(52,211,153,0.4)">
+        <div class="icon">&#128230;</div>
+        <div class="name">Flask Pods</div>
+        <div class="sub">2&ndash;10 replicas</div>
+      </div>
+      <div class="arch-arrow">&#8594;</div>
+      <div class="arch-node" style="border-color: rgba(251,146,60,0.4)">
+        <div class="icon">&#128296;</div>
+        <div class="name">HPA</div>
+        <div class="sub">Auto-scales</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Endpoints -->
+  <div class="endpoints">
+    <h2>&#128279; API Endpoints</h2>
+    <div class="ep-row">
+      <span class="method">GET</span>
+      <span class="ep-path">/</span>
+      <span class="ep-desc">This dashboard</span>
+    </div>
+    <div class="ep-row">
+      <span class="method">GET</span>
+      <span class="ep-path">/api/stats</span>
+      <span class="ep-desc">Live JSON stats</span>
+    </div>
+    <div class="ep-row">
+      <span class="method">GET</span>
+      <span class="ep-path">/health</span>
+      <span class="ep-desc">Liveness probe (K8s)</span>
+    </div>
+    <div class="ep-row">
+      <span class="method">GET</span>
+      <span class="ep-path">/ready</span>
+      <span class="ep-desc">Readiness probe (K8s)</span>
+    </div>
+  </div>
+
+</main>
+
+<footer>
+  Flask &times; Docker &times; Kubernetes &mdash; Deployed on {{ cloud_name }} &mdash; Cloud Computing Demo
+</footer>
+
+<script>
+  // Live uptime counter
+  let uptime = {{ uptime }};
+  function fmt(s) {
+    const h = String(Math.floor(s / 3600)).padStart(2,'0');
+    const m = String(Math.floor((s % 3600) / 60)).padStart(2,'0');
+    const sec = String(s % 60).padStart(2,'0');
+    return h + ':' + m + ':' + sec;
+  }
+  document.getElementById('uptime-display').textContent = fmt(uptime);
+  setInterval(() => {
+    uptime++;
+    document.getElementById('uptime-display').textContent = fmt(uptime);
+  }, 1000);
+
+  // Poll live stats every 5s
+  setInterval(() => {
+    fetch('/api/stats')
+      .then(r => r.json())
+      .then(d => {
+        document.getElementById('req-count').textContent = d.request_count;
+      });
+  }, 5000);
+</script>
+</body>
+</html>

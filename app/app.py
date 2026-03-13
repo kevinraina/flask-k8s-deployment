@@ -1,10 +1,15 @@
-from flask import Flask, jsonify, render_template
+from flask import Flask, render_template
+from routes import main
+from config import Config
 import os
 import socket
 import platform
 import time
 
 app = Flask(__name__)
+app.config.from_object(Config)
+app.register_blueprint(main)
+
 START_TIME = time.time()
 REQUEST_COUNT = 0
 
@@ -30,28 +35,6 @@ def home():
         request_count=REQUEST_COUNT,
         python_version=platform.python_version(),
     )
-
-@app.route("/health")
-def health():
-    return jsonify({"status": "healthy"}), 200
-
-@app.route("/ready")
-def ready():
-    return jsonify({"status": "ready"}), 200
-
-@app.route("/api/stats")
-def stats():
-    global REQUEST_COUNT
-    REQUEST_COUNT += 1
-    cloud_name, _ = get_cloud_provider()
-    return jsonify({
-        "hostname": socket.gethostname(),
-        "environment": os.getenv("APP_ENV", "development"),
-        "cloud": cloud_name,
-        "uptime_seconds": int(time.time() - START_TIME),
-        "request_count": REQUEST_COUNT,
-        "python_version": platform.python_version(),
-    })
 
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 5000))
